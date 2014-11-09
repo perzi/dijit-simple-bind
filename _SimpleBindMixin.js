@@ -1,7 +1,9 @@
 define([
-	"dojo/_base/declare"
+	"dojo/_base/declare",
+	"dojo/string"
 ], function(
-	declare
+	declare,
+	string
 ) {
 	// variable to use for namespacing properties before buildRendering
 	var _bindiId = 0;
