@@ -16,11 +16,15 @@ define([
 		postMixInProperties: function() {
 			this.inherited(arguments);
 
-			var nameSpacedDynamicProperty = string.substitute("{{${0}:$1}}", [_bindiId]);
-			var namespacedTemplateString = this.templateString.replace(this.bindPropertyExpression, nameSpacedDynamicProperty);
+			// increase id counter
+			_bindiId++;
 
 			// convert names to namespaced names
 			// {{property}} -> {{<_bindiId>:property}}
+			var nameSpacedDynamicProperty = string.substitute("{{${0}:$1}}", [_bindiId]);
+			var namespacedTemplateString = this.templateString.replace(this.bindPropertyExpression, nameSpacedDynamicProperty);
+
+			// update templateString
 			this.templateString = namespacedTemplateString;
 		}
 	});
