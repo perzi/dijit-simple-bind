@@ -11,7 +11,7 @@ var dojoConfig = {
     packages: [
         { name:"dijit-simple-bind" ,location:"/base"},
         { name: "dojo", location: "http://ajax.googleapis.com/ajax/libs/dojo/1.9.1/dojo" },
-        { name: "dojox", location: "http://ajax.googleapis.com/ajax/libs/dojo/1.9.1/dojox" }
+        { name: "dijit", location: "http://ajax.googleapis.com/ajax/libs/dojo/1.9.1/dijit" }
     ],
     asynch: true
 };

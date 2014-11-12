@@ -10,8 +10,7 @@ define([
 
 	return declare(null, {
 
-		bindPropertyExpression: /\{\{([\$_\-\w\d]+)\}\}/g,
-		bindNamespacedPropertyExpression: /\{\{[\$_\-\w\d]+:[\$_\-\w\d]+\}\}/g,
+		bindPropertyExpression: /\{\{([^\}]+)\}\}/g,
 
 		postMixInProperties: function() {
 			this.inherited(arguments);
