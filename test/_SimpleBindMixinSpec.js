@@ -135,7 +135,7 @@ define([
             expect(cls.domNode.childNodes.length).toBe(3);
             expect(cls.domNode.childNodes[1].innerHTML).toBe("Title");
         });
-        
+
         it("Should handle property replacement around dom nodes", function() {
             cls = new CLS({ templateString: '<div>{{A}}<h1>Title</h1>{{A}}</div>' });
             cls.set("A", "Q");
@@ -143,6 +143,13 @@ define([
             expect(cls.domNode.childNodes[0].nodeValue).toBe("Q");
             expect(cls.domNode.childNodes[1].innerHTML).toBe("Title");
             expect(cls.domNode.childNodes[2].nodeValue).toBe("Q");
+        });
+
+        it("Should handle property nested in nodes", function() {
+            cls = new CLS({ templateString: '<div><h1>{{A}}</h1>{{A}}</div>' });
+            cls.set("A", "Q");
+            expect(cls.domNode.childNodes[0].innerHTML).toBe("Q");
+            expect(cls.domNode.childNodes[1].nodeValue).toBe("Q");
         });
     });
 
