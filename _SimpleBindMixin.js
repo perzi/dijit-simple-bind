@@ -50,12 +50,99 @@ define([
 
 		_findPropertiesInNodes: function() {
 			// first approach: get all child nodes and this.domNode
+			// even if the nodes are child widgets
+			// TODO: only scan child widgets' container nodes. exclude child
+			// widgets' domNode
 			var nodes = query(this.domNode).concat(query("*", this.domNode));
 
 			// fix attributes updaters
 			nodes.forEach(function(node, index) {
 				this._findBindableAttributes(node);
 			}, this);
+
+			// fix text updaters
+			nodes.forEach(function(node, index) {
+				this._findBindableTextNodes(node);
+			}, this);
+		},
+
+		_findBindableTextNodes: function(root) {
+			// summary:
+			//		Check for text nodes that have a dynamic property
+
+			var i;
+			var node;
+			var TEXT = 3;
+
+			for (i = 0; i < root.childNodes.length; i++) {
+				node = root.childNodes[i];
+
+				if (node.nodeType === TEXT) {
+					this._checkTextNode(node, i);
+				}
+			}
+		},
+
+		_checkTextNode: function(node, baseIndex) {
+
+			var reg = this._bindNamespacedPropertyRegex;
+			var text = node.nodeValue;
+			var root = node.parentNode;
+			var staticText;
+			var matches = text.split(reg);
+
+			matches = array.filter(matches, function(o, index) {
+				return index % 2 === 1;
+			});
+
+			// exit if we have no match
+			if (!matches || matches.length === 0) {
+				return;
+			}
+
+			// TODO: use same array as matches, switch in array.forEach
+			staticText = text.split(reg);
+			staticText = array.filter(staticText, function(o, index) {
+				return index % 2 === 0;
+			});
+
+			// TODO: don't create empty text nodes, keep track of created node index
+			array.forEach(staticText, function(static, index) {
+
+				var match;
+				var propertyName;
+				var newNode;
+
+				newNode = document.createTextNode(static);
+				node.parentNode.insertBefore(newNode, node);
+
+				if (index < matches.length) {
+					propertyName = matches[index];
+					// propertyName = this._dynamicName(match);
+					newNode = document.createTextNode(this.get(propertyName));
+					this._createTextNodeUpdater(root, propertyName, baseIndex + (index * 2) + 1);
+					node.parentNode.insertBefore(newNode, node);
+				}
+			}, this);
+
+			// delete node
+			node.parentNode.removeChild(node);
+		},
+
+		_createTextNodeUpdater: function(parent, propertyName, index) {
+
+			var updater = lang.hitch(this, function(p, o, n) {
+
+				var node = parent.childNodes[index];
+				var newNode = document.createTextNode(this.get(propertyName));
+
+				parent.insertBefore(newNode, node);
+
+				// delete node
+				parent.removeChild(node);
+			});
+
+			this.own(this.watch(propertyName, updater));
 		},
 
 		_findBindableAttributes: function(node) {

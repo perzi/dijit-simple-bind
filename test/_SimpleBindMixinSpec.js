@@ -96,6 +96,34 @@ define([
         });
     });
 
+    describe("Bindable Text", function() {
 
+        var cls;
+        var CLS = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            A: "X",
+            B: "Y"
+        });
+
+        afterEach(function() {
+            cls.destroy();
+        });
+
+        it("Should replace bindable text with property value at on creation", function() {
+            cls = new CLS({ templateString: '<div>{{A}}</div>' });
+            expect(cls.domNode.innerHTML).toBe('X');
+        });
+
+        it("Should replace bindable text with property value at on creation", function() {
+            cls = new CLS({ templateString: '<div>{{A}}</div>' });
+            cls.set("A", "Z");
+            expect(cls.domNode.innerHTML).toBe('Z');
+        });
+
+        it("Should replace bindable text with property value at on creation", function() {
+            cls = new CLS({ templateString: '<div>{{A}}</div>' });
+            expect(cls.domNode.childNodes.length).toBe(1);
+        });
+
+    });
 
 });
