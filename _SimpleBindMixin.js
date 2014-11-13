@@ -86,47 +86,39 @@ define([
 		_checkTextNode: function(node, baseIndex) {
 
 			var reg = this._bindNamespacedPropertyRegex;
-			var text = node.nodeValue;
 			var root = node.parentNode;
-			var staticText;
+			var text = node.nodeValue;
 			var matches = text.split(reg);
-
-			matches = array.filter(matches, function(o, index) {
-				return index % 2 === 1;
-			});
+			var createdIndex = 0;
 
 			// exit if we have no match
 			if (!matches || matches.length === 0) {
 				return;
 			}
 
-			// TODO: use same array as matches, switch in array.forEach
-			staticText = text.split(reg);
-			staticText = array.filter(staticText, function(o, index) {
-				return index % 2 === 0;
-			});
+			array.forEach(matches, function(match, index) {
 
-			// TODO: don't create empty text nodes, keep track of created node index
-			array.forEach(staticText, function(static, index) {
-
-				var match;
-				var propertyName;
 				var newNode;
 
-				newNode = document.createTextNode(static);
-				node.parentNode.insertBefore(newNode, node);
-
-				if (index < matches.length) {
-					propertyName = matches[index];
-					// propertyName = this._dynamicName(match);
-					newNode = document.createTextNode(this.get(propertyName));
-					this._createTextNodeUpdater(root, propertyName, baseIndex + (index * 2) + 1);
-					node.parentNode.insertBefore(newNode, node);
+				if (index % 2 === 0) {
+					// static node
+					// don't create empty text nodes
+					if (match.length > 0) {
+						newNode = document.createTextNode(match);
+						root.insertBefore(newNode, node);
+						createdIndex++;
+					}
+				} else {
+					// bindable node
+					newNode = document.createTextNode(this.get(match));
+					this._createTextNodeUpdater(root, match, (baseIndex + createdIndex));
+					root.insertBefore(newNode, node);
+					createdIndex++;
 				}
 			}, this);
 
 			// delete node
-			node.parentNode.removeChild(node);
+			root.removeChild(node);
 		},
 
 		_createTextNodeUpdater: function(parent, propertyName, index) {

@@ -119,11 +119,31 @@ define([
             expect(cls.domNode.innerHTML).toBe('Z');
         });
 
-        it("Should replace bindable text with property value at on creation", function() {
+        it("Should not create empty text nodes", function() {
             cls = new CLS({ templateString: '<div>{{A}}</div>' });
             expect(cls.domNode.childNodes.length).toBe(1);
         });
 
+        it("Should handle multiple properties in text", function() {
+            cls = new CLS({ templateString: '<div>{{A}} {{B}}</div>' });
+            expect(cls.domNode.innerHTML).toBe("X Y");
+            expect(cls.domNode.childNodes.length).toBe(3);
+        });
+
+        it("Should handle property replacement around dom nodes", function() {
+            cls = new CLS({ templateString: '<div>{{A}}<h1>Title</h1>{{A}}</div>' });
+            expect(cls.domNode.childNodes.length).toBe(3);
+            expect(cls.domNode.childNodes[1].innerHTML).toBe("Title");
+        });
+        
+        it("Should handle property replacement around dom nodes", function() {
+            cls = new CLS({ templateString: '<div>{{A}}<h1>Title</h1>{{A}}</div>' });
+            cls.set("A", "Q");
+            expect(cls.domNode.childNodes.length).toBe(3);
+            expect(cls.domNode.childNodes[0].nodeValue).toBe("Q");
+            expect(cls.domNode.childNodes[1].innerHTML).toBe("Title");
+            expect(cls.domNode.childNodes[2].nodeValue).toBe("Q");
+        });
     });
 
 });
