@@ -152,10 +152,10 @@ define([
             expect(cls.domNode.childNodes[1].nodeValue).toBe("Q");
         });
 
-        it("Should handle ", function() {
+        it("Should escape content", function() {
             cls = new CLS({ templateString: '<div>{{A}}</div>' });
             cls.set("A", "<b>A</b>");
-            expect(cls.domNode.childNodes[0].nodeValue).toBe("<b>A</b>");
+            expect(cls.domNode.innerHTML).toBe("&lt;b&gt;A&lt;/b&gt;");
         });
     });
 
