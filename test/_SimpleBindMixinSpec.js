@@ -2,11 +2,13 @@ define([
     'dojo/_base/declare',
     'dijit/_WidgetBase',
     'dijit/_TemplatedMixin',
+    'dijit/_WidgetsInTemplateMixin',
     'dijit-simple-bind/_SimpleBindMixin'
 ], function(
     declare,
     _WidgetBase,
     _TemplatedMixin,
+    _WidgetsInTemplateMixin,
     _SimpleBindMixin
 ) {
 
@@ -156,6 +158,30 @@ define([
             cls = new CLS({ templateString: '<div>{{A}}</div>' });
             cls.set("A", "<b>A</b>");
             expect(cls.domNode.innerHTML).toBe("&lt;b&gt;A&lt;/b&gt;");
+        });
+    });
+
+    describe("Widgets in template", function() {
+
+        var Contained = declare("Contained", [_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><div data-dojo-attach-point="titleNode">{{A}}</div><div data-dojo-attach-point="containerNode"></div></div>',
+            A: "Y"
+        });
+        var Main = declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, _SimpleBindMixin], {
+            templateString: '<div><div data-dojo-attach-point="child" data-dojo-type="Contained">{{A}}</div></div>',
+            A: "X"
+        });
+        var main;
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Bindable properties in template should be part of the parents properties", function() {
+            main = new Main();
+            main.placeAt(document.body);
+            expect(main.child.containerNode.innerHTML).toBe('X');
+            expect(main.child.titleNode.innerHTML).toBe('Y');
         });
     });
 
