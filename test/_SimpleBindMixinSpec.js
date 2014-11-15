@@ -151,6 +151,12 @@ define([
             expect(cls.domNode.childNodes[0].innerHTML).toBe("Q");
             expect(cls.domNode.childNodes[1].nodeValue).toBe("Q");
         });
+
+        it("Should handle ", function() {
+            cls = new CLS({ templateString: '<div>{{A}}</div>' });
+            cls.set("A", "<b>A</b>");
+            expect(cls.domNode.childNodes[0].nodeValue).toBe("<b>A</b>");
+        });
     });
 
 });

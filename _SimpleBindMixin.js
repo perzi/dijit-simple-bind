@@ -3,6 +3,7 @@ define([
 	"dojo/_base/declare",
 	"dojo/_base/lang",
 	"dojo/dom-attr",
+	"dojo/dom-construct",
 	"dojo/string",
 	"dojo/query"
 ], function(
@@ -10,6 +11,7 @@ define([
 	declare,
 	lang,
 	domAttr,
+	domConstruct,
 	string,
 	query
 ) {
@@ -89,7 +91,6 @@ define([
 			var root = node.parentNode;
 			var text = node.nodeValue;
 			var matches = text.split(reg);
-			var createdIndex = 0;
 
 			// exit if we have no match
 			if (!matches || matches.length === 0) {
@@ -106,14 +107,10 @@ define([
 					if (match.length > 0) {
 						newNode = document.createTextNode(match);
 						root.insertBefore(newNode, node);
-						createdIndex++;
 					}
 				} else {
 					// bindable node
-					newNode = document.createTextNode(this.get(match));
-					this._createTextNodeUpdater(root, match, (baseIndex + createdIndex));
-					root.insertBefore(newNode, node);
-					createdIndex++;
+					this._createTextNodeUpdater(root, match, node);
 				}
 			}, this);
 
@@ -121,20 +118,31 @@ define([
 			root.removeChild(node);
 		},
 
-		_createTextNodeUpdater: function(parent, propertyName, index) {
+		_createTextNodeUpdater: function(parent, propertyName, initalNode)  {
 
-			var updater = lang.hitch(this, function(p, o, n) {
+			var ref = initalNode;
 
-				var node = parent.childNodes[index];
-				var newNode = document.createTextNode(this.get(propertyName));
+			// TODO: handle property value that includes html content
+			// see: https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment
+			// how to use properties for the document fragment
+			// This updater does not handle creating document fragments
+			// it inserts "<b>A</b" as text and there won't be any bold element
+			var update = lang.hitch(this, function(p, o, n) {
 
-				parent.insertBefore(newNode, node);
+				var newContent = document.createTextNode(this.get(propertyName));
 
-				// delete node
-				parent.removeChild(node);
+				parent.insertBefore(newContent, ref);
+
+				// delete ref if it's not the initial node
+				if (ref !== initalNode) {
+					parent.removeChild(ref);
+				}
+
+				ref = newContent;
 			});
 
-			this.own(this.watch(propertyName, updater));
+			this.own(this.watch(propertyName, update));
+			update();
 		},
 
 		_findBindableAttributes: function(node) {
