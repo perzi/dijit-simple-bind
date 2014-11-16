@@ -7,6 +7,7 @@ define([
 	"dojo/string",
 	"dojo/query",
 	"dijit/registry",
+	"dijit/_WidgetsInTemplateMixin",
 	"dojo/NodeList-traverse"
 ], function(
 	array,
@@ -16,107 +17,88 @@ define([
 	domConstruct,
 	string,
 	query,
-	registry
+	registry,
+	_WidgetsInTemplateMixin
 ) {
 	// variable to use for namespacing properties before buildRendering
-	var _bindId = 0;
+	var idCounter = 0;
 
 	return declare(null, {
 
-		// bindPropertyRegex: RegEx
-		//		Regular expression to match bindable properties in template
-		bindPropertyRegex: /\{\{\s*([^\}\s]+)\s*\}\}/g,
-
-		// _bindablePropertyRegex: [private] RegEx
-		//		Regular expression to match bindable properties after
-		//		namespacing has been done
-		_bindablePropertyRegex: /\{\{[^:\}]+:([^\}]+)\}\}/g,
-		_bindableNamespacedPropertyRegex: null,
+		// _simpleBindPropertyRegex: [private] RegEx
+		//		Regular expression to match bindable properties
+		_simpleBindPropertyRegex: /\{\{([^\}]+)\}\}/g,
 
 		postMixInProperties: function() {
 			this.inherited(arguments);
 
-			// increase id counter
-			_bindId++;
+			if (this.isInstanceOf(_WidgetsInTemplateMixin)) {
+				// increase id counter
+				idCounter++;
 
-			// convert names to namespaced names
-			// {{property}} -> {{<_bindId>:property}}
-			var nameSpacedDynamicProperty = string.substitute("{{${0}:$1}}", [_bindId]);
-			var namespacedTemplateString = this.templateString.replace(this.bindPropertyRegex, nameSpacedDynamicProperty);
+				// convert names in template to namespaced names
+				// {{property}} -> {{<idCounter>:property}}
+				var nameSpacedDynamicProperty = string.substitute("{{${0}:$1}}", [idCounter]);
+				var namespacedTemplateString = this.templateString.replace(this._simpleBindPropertyRegex, nameSpacedDynamicProperty);
 
-			this._bindableNamespacedPropertyRegex = new RegExp("\\{\\{" + _bindId + ":([^\\}]+)\\}\\}", "g");
+				// update templateString
+				this.templateString = namespacedTemplateString;
 
-			// update templateString
-			this.templateString = namespacedTemplateString;
+				// set regex to include the idCounter when finding created nodes
+				this._simpleBindPropertyRegex = new RegExp("\\{\\{" + idCounter + ":([^\\}]+)\\}\\}", "g");
+			}
 		},
 
 		buildRendering: function() {
 			this.inherited(arguments);
 
-			this._findPropertiesInNodes();
+			// check for attributes
+			this._simpleBindAttributes(this.domNode);
+			this._simpleBindProperties(this.domNode);
 		},
 
-		_findPropertiesInNodes: function() {
-			// first approach: get all child nodes and this.domNode
-			// even if the nodes are child widgets
-			// TODO: only scan child widgets' container nodes. exclude child
-			// widgets' domNode
-			var nodes = query(this.domNode).concat(this._collectPossibleNodes(this.domNode));
+		_simpleBindProperties: function(root) {
 
-			nodes.forEach(function(node, index) {
-				// fix attributes updaters
-				this._findBindableAttributes(node);
-				// fix text updaters
-				this._findBindableTextNodes(node);
-			}, this);
-		},
-
-		_collectPossibleNodes: function(root) {
-
-			var nodes = query(root).children();
-
-			nodes.forEach(function(node, index) {
-				// find all child nodes that are not widgets
-
-				var isChildWidgetNode = domAttr.has(node, "widgetid");
-				var isMyContainerNode = (this.containerNode === node);
-				var widget;
-
-				if (isChildWidgetNode) {
-					widget = registry.byNode(node);
-					// we need to scan all created nodes in container nodes
-					if (widget.containerNode) {
-						nodes = nodes.concat(query(widget.containerNode)).concat(this._collectPossibleNodes(widget.containerNode));
-					}
-				} else if (!isMyContainerNode) {
-					// don't look into my container node for content
-					nodes = nodes.concat(this._collectPossibleNodes(node));
-				}
-			}, this);
-
-			return nodes;
-		},
-
-		_findBindableTextNodes: function(root) {
-			// summary:
-			//		Check for text nodes that have a dynamic property
-
-			var i;
-			var node;
 			var TEXT = 3;
+			var node;
+			var isMyContainerNode;
+			var widget;
 
-			for (i = 0; i < root.childNodes.length; i++) {
+			for (var i = 0, l = root.childNodes.length; i < l; i++) {
 				node = root.childNodes[i];
 
 				if (node.nodeType === TEXT) {
-					this._checkTextNode(node, i);
+					// find properties it text
+					this._simpleBindTextNode(node);
+
+				} else {
+					isMyContainerNode = (this.containerNode === node);
+
+ 					if (!isMyContainerNode) {
+						// check for both attributes
+						this._simpleBindAttributes(node);
+						this._simpleBindProperties(node);
+
+					} else if (isMyContainerNode) {
+						// check attributes in my containernode
+						this._simpleBindAttributes(node);
+
+					} else if (domAttr.has(node, "widgetid")) {
+						// it's a child widget
+						widget = registry.byNode(node);
+
+						// only continue if the node has a containerNode
+						if (widget.containerNode) {
+							this._simpleBindProperties(node);
+						}
+					}
 				}
 			}
 		},
 
-		_checkTextNode: function(node, baseIndex) {
+		_simpleBindTextNode: function(node) {
 
-			var reg = this._bindableNamespacedPropertyRegex;
+			var reg = this._simpleBindPropertyRegex;
 			var root = node.parentNode;
 			var text = node.nodeValue;
 			var matches = text.split(reg);
@@ -176,7 +158,7 @@ define([
 			update();
 		},
 
-		_findBindableAttributes: function(node) {
+		_simpleBindAttributes: function(node) {
 			var i;
 			var attr;
 			var name;
@@ -184,17 +166,27 @@ define([
 			var format;
 			var names;
 			var values;
+			var matches;
+			var keepEven = function(o, index) {
+				return index % 2 === 1;
+			};
 
 			for (i = 0; i < node.attributes.length; i++) {
 
 				attr = node.attributes[i];
-				name = attr.name;
 				value = attr.value;
+				matches = value.split(this._simpleBindPropertyRegex);
 
-				format = value.replace(this._bindableNamespacedPropertyRegex, "${$1}");
-				names = array.filter(value.split(this._bindableNamespacedPropertyRegex), function(o, index) {
-					return index % 2 === 1;
-				});
+				// exit if no properties are found
+				if (matches && matches.length < 3) {
+					break;
+				}
+
+				name = attr.name;
+				format = value.replace(this._simpleBindPropertyRegex, "${$1}");
+
+				// the names are the
+				names = array.filter(matches, keepEven);
 
 				// TODO: check for special attributes as "style" which can have sub keys/values
 				// TODO: maybe do special code when attribute="{{propertyName}}"

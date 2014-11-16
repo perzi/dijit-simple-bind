@@ -134,7 +134,7 @@ define([
             main.destroy();
         });
 
-        it("Bindable properties in template should be part of the parents properties", function() {
+        it("Bindable properties in template should be bound to parents properties", function() {
             expect(main.child.containerNode.innerHTML).toBe('3');
             expect(main.child.titleNode.innerHTML).toBe('1');
         });
