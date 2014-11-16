@@ -3,18 +3,23 @@ define([
 	"dojo/_base/declare",
 	"dojo/_base/lang",
 	"dojo/dom-attr",
+	"dojo/dom-construct",
 	"dojo/string",
-	"dojo/query"
+	"dojo/query",
+	"dijit/registry",
+	"dojo/NodeList-traverse"
 ], function(
 	array,
 	declare,
 	lang,
 	domAttr,
+	domConstruct,
 	string,
-	query
+	query,
+	registry
 ) {
 	// variable to use for namespacing properties before buildRendering
-	var _bindiId = 0;
+	var _bindId = 0;
 
 	return declare(null, {
 
@@ -22,21 +27,24 @@ define([
 		//		Regular expression to match bindable properties in template
 		bindPropertyRegex: /\{\{\s*([^\}\s]+)\s*\}\}/g,
 
-		// _bindNamespacedPropertyRegex: [private] RegEx
+		// _bindablePropertyRegex: [private] RegEx
 		//		Regular expression to match bindable properties after
 		//		namespacing has been done
-		_bindNamespacedPropertyRegex: /\{\{[^:\}]+:([^\}]+)\}\}/g,
+		_bindablePropertyRegex: /\{\{[^:\}]+:([^\}]+)\}\}/g,
+		_bindableNamespacedPropertyRegex: null,
 
 		postMixInProperties: function() {
 			this.inherited(arguments);
 
 			// increase id counter
-			_bindiId++;
+			_bindId++;
 
 			// convert names to namespaced names
-			// {{property}} -> {{<_bindiId>:property}}
-			var nameSpacedDynamicProperty = string.substitute("{{${0}:$1}}", [_bindiId]);
+			// {{property}} -> {{<_bindId>:property}}
+			var nameSpacedDynamicProperty = string.substitute("{{${0}:$1}}", [_bindId]);
 			var namespacedTemplateString = this.templateString.replace(this.bindPropertyRegex, nameSpacedDynamicProperty);
+
+			this._bindableNamespacedPropertyRegex = new RegExp("\\{\\{" + _bindId + ":([^\\}]+)\\}\\}", "g");
 
 			// update templateString
 			this.templateString = namespacedTemplateString;
@@ -53,17 +61,40 @@ define([
 			// even if the nodes are child widgets
 			// TODO: only scan child widgets' container nodes. exclude child
 			// widgets' domNode
-			var nodes = query(this.domNode).concat(query("*", this.domNode));
+			var nodes = query(this.domNode).concat(this._collectPossibleNodes(this.domNode));
 
-			// fix attributes updaters
 			nodes.forEach(function(node, index) {
+				// fix attributes updaters
 				this._findBindableAttributes(node);
-			}, this);
-
-			// fix text updaters
-			nodes.forEach(function(node, index) {
+				// fix text updaters
 				this._findBindableTextNodes(node);
 			}, this);
+		},
+
+		_collectPossibleNodes: function(root) {
+
+			var nodes = query(root).children();
+
+			nodes.forEach(function(node, index) {
+				// find all child nodes that are not widgets
+
+				var isChildWidgetNode = domAttr.has(node, "widgetid");
+				var isMyContainerNode = (this.containerNode === node);
+				var widget;
+
+				if (isChildWidgetNode) {
+					widget = registry.byNode(node);
+					// we need to scan all created nodes in container nodes
+					if (widget.containerNode) {
+						nodes = nodes.concat(query(widget.containerNode)).concat(this._collectPossibleNodes(widget.containerNode));
+					}
+				} else if (!isMyContainerNode) {
+					// don't look into my container node for content
+					nodes = nodes.concat(this._collectPossibleNodes(node));
+				}
+			}, this);
+
+			return nodes;
 		},
 
 		_findBindableTextNodes: function(root) {
@@ -85,11 +116,10 @@ define([
 
 		_checkTextNode: function(node, baseIndex) {
 
-			var reg = this._bindNamespacedPropertyRegex;
+			var reg = this._bindableNamespacedPropertyRegex;
 			var root = node.parentNode;
 			var text = node.nodeValue;
 			var matches = text.split(reg);
-			var createdIndex = 0;
 
 			// exit if we have no match
 			if (!matches || matches.length === 0) {
@@ -106,14 +136,10 @@ define([
 					if (match.length > 0) {
 						newNode = document.createTextNode(match);
 						root.insertBefore(newNode, node);
-						createdIndex++;
 					}
 				} else {
 					// bindable node
-					newNode = document.createTextNode(this.get(match));
-					this._createTextNodeUpdater(root, match, (baseIndex + createdIndex));
-					root.insertBefore(newNode, node);
-					createdIndex++;
+					this._createTextNodeUpdater(root, match, node);
 				}
 			}, this);
 
@@ -121,20 +147,33 @@ define([
 			root.removeChild(node);
 		},
 
-		_createTextNodeUpdater: function(parent, propertyName, index) {
+		_createTextNodeUpdater: function(parent, propertyName, initalNode)  {
 
-			var updater = lang.hitch(this, function(p, o, n) {
+			var ref = initalNode;
 
-				var node = parent.childNodes[index];
-				var newNode = document.createTextNode(this.get(propertyName));
+			// TODO: handle property value that includes html content
+			// see: https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment
+			// how to use properties for the document fragment
+			// This updater does not handle creating document fragments
+			// it inserts "<b>A</b" as text and there won't be any bold element
+			// it should be {{!A}} in text?
+			// TODO: handle formatters for the text and escaping
+			var update = lang.hitch(this, function(p, o, n) {
 
-				parent.insertBefore(newNode, node);
+				var newContent = document.createTextNode(this.get(propertyName));
 
-				// delete node
-				parent.removeChild(node);
+				parent.insertBefore(newContent, ref);
+
+				// delete ref if it's not the initial node
+				if (ref !== initalNode) {
+					parent.removeChild(ref);
+				}
+
+				ref = newContent;
 			});
 
-			this.own(this.watch(propertyName, updater));
+			this.own(this.watch(propertyName, update));
+			update();
 		},
 
 		_findBindableAttributes: function(node) {
@@ -152,8 +191,8 @@ define([
 				name = attr.name;
 				value = attr.value;
 
-				format = value.replace(this._bindNamespacedPropertyRegex, "${$1}");
-				names = array.filter(value.split(this._bindNamespacedPropertyRegex), function(o, index) {
+				format = value.replace(this._bindableNamespacedPropertyRegex, "${$1}");
+				names = array.filter(value.split(this._bindableNamespacedPropertyRegex), function(o, index) {
 					return index % 2 === 1;
 				});
 
