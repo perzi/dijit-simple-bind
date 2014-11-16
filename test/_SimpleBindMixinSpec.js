@@ -164,25 +164,34 @@ define([
     describe("Widgets in template", function() {
 
         var Contained = declare("Contained", [_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
-            templateString: '<div><div data-dojo-attach-point="titleNode">{{A}}</div><div data-dojo-attach-point="containerNode"></div></div>',
-            A: "Y"
+            templateString: '<div><div class="{{B}}" data-dojo-attach-point="titleNode">{{A}}</div><div data-dojo-attach-point="containerNode"></div></div>',
+            A: "1",
+            B: "2"
         });
         var Main = declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, _SimpleBindMixin], {
             templateString: '<div><div data-dojo-attach-point="child" data-dojo-type="Contained">{{A}}</div></div>',
-            A: "X"
+            A: "3",
+            B: "4"
         });
         var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
 
         afterEach(function() {
             main.destroy();
         });
 
         it("Bindable properties in template should be part of the parents properties", function() {
-            main = new Main();
-            main.placeAt(document.body);
-            expect(main.child.containerNode.innerHTML).toBe('X');
-            expect(main.child.titleNode.innerHTML).toBe('Y');
+            expect(main.child.containerNode.innerHTML).toBe('3');
+            expect(main.child.titleNode.innerHTML).toBe('1');
         });
+
+        it("Bindable attributes in child template should be handled by child widget", function() {
+            expect(main.child.titleNode.className).toBe('2');
+        });
+
     });
 
 });
