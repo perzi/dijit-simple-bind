@@ -142,12 +142,6 @@ define([
 				ref = [initalNode];
 			}
 
-			// TODO: handle property value that includes html content
-			// see: https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment
-			// how to use properties for the document fragment
-			// This updater does not handle creating document fragments
-			// it inserts "<b>A</b" as text and there won't be any bold element
-			// it should be {{!A}} in text?
 			// TODO: handle formatters for the text and escaping
 			var update = lang.hitch(this, function(p, o, n) {
 
