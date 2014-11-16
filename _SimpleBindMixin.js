@@ -125,33 +125,66 @@ define([
 				}
 			}, this);
 
-			// delete node
+			// delete node when all others have been created
 			root.removeChild(node);
 		},
 
-		_createTextNodeUpdater: function(parent, propertyName, initalNode)  {
+		_createTextNodeUpdater: function(parent, propertyDirective, initalNode)  {
 
 			var ref = initalNode;
+			var propertyName = propertyDirective;
+			var htmlEscape = true;
 
-			// TODO: handle property value that includes html content
-			// see: https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment
-			// how to use properties for the document fragment
-			// This updater does not handle creating document fragments
-			// it inserts "<b>A</b" as text and there won't be any bold element
-			// it should be {{!A}} in text?
+			// html in value
+			if (propertyName[0] === "!") {
+				propertyName = propertyName.substr(1);
+				htmlEscape = false;
+				ref = [initalNode];
+			}
+
 			// TODO: handle formatters for the text and escaping
 			var update = lang.hitch(this, function(p, o, n) {
 
-				var newContent = document.createTextNode(this.get(propertyName));
+				var newContent;
 
-				parent.insertBefore(newContent, ref);
+				if (htmlEscape) {
+					newContent = document.createTextNode(this.get(propertyName));
 
-				// delete ref if it's not the initial node
-				if (ref !== initalNode) {
-					parent.removeChild(ref);
+					parent.insertBefore(newContent, ref);
+
+					// delete ref if it's not the initial node
+					if (ref !== initalNode) {
+						parent.removeChild(ref);
+					}
+
+					ref = newContent;
+				} else {
+
+					// Don't escape content
+					var newRef = [];
+					newContent = domConstruct.toDom(this.get(propertyName));
+
+					// copy references
+					if (newContent.childElementCount > 0) {
+						for (var i = 0; i < newContent.childElementCount; i++) {
+							newRef.push(newContent.children[i]);
+						}
+					} else {
+						newRef = [newContent];
+					}
+
+					// insert before first item in ref
+					parent.insertBefore(newContent, ref[0]);
+
+					// remove previous content
+					if (ref[0] !== initalNode) {
+						array.forEach(ref, function(node) {
+							parent.removeChild(node);
+						});
+					}
+
+					ref = newRef;
 				}
-
-				ref = newContent;
 			});
 
 			this.own(this.watch(propertyName, update));
