@@ -110,6 +110,28 @@ define([
             cls.set("A", "<b>A</b>");
             expect(cls.domNode.innerHTML).toBe("&lt;b&gt;A&lt;/b&gt;");
         });
+
+        it("Should not escape content when using {{!propertyName}}", function() {
+            cls = new CLS({ templateString: '<div>{{!A}}</div>' });
+            cls.set("A", "<b>A</b>");
+            expect(cls.domNode.innerHTML).toBe("<b>A</b>");
+        });
+
+        it("Should not escape content when using {{!propertyName}} and have mixed content", function() {
+            cls = new CLS({ templateString: '<div>{{!A}}</div>' });
+            cls.set("A", "<b>A</b>B");
+            expect(cls.domNode.innerHTML).toBe("<b>A</b>B");
+        });
+
+        it("Should not escape content when using {{!propertyName}} and have multiple content", function() {
+            cls = new CLS({ templateString: '<div>{{!A}}</div>' });
+
+            var s = "1<b>A</b>2<i>B</i>3";
+
+            cls.set("A", s);
+            expect(cls.domNode.innerHTML).toBe(s);
+        });
+
     });
 
     describe("Widgets in template", function() {
