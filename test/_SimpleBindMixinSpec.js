@@ -49,7 +49,7 @@ define([
         });
     });
 
-    describe("Bindable Text", function() {
+    describe("Properties in text", function() {
 
         var cls;
         var CLS = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
@@ -89,7 +89,7 @@ define([
             expect(cls.domNode.childNodes[1].innerHTML).toBe("Title");
         });
 
-        it("Should handle property replacement around dom nodes", function() {
+        it("Should handle property replacement around dom nodes when setting property", function() {
             cls = new CLS({ templateString: '<div>{{A}}<h1>Title</h1>{{A}}</div>' });
             cls.set("A", "Q");
             expect(cls.domNode.childNodes.length).toBe(3);
@@ -132,6 +132,14 @@ define([
             expect(cls.domNode.innerHTML).toBe(s);
         });
 
+        it("Should not escape content when using {{!propertyName}} and have multiple content 2", function() {
+            cls = new CLS({ templateString: '<div>{{!A}} {{!A}}</div>' });
+
+            var s = "<b>X</b>2";
+
+            cls.set("A", s);
+            expect(cls.domNode.innerHTML).toBe(s + " " + s);
+        });
     });
 
     describe("Widgets in template", function() {
@@ -163,6 +171,44 @@ define([
 
         it("Bindable attributes in child template should be handled by child widget", function() {
             expect(main.child.titleNode.className).toBe('2');
+        });
+
+    });
+
+    describe("Widgets with properties", function() {
+
+        var Contained = declare("Contained2", [_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div>{{title}}</div>',
+            title: "A"
+        });
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, _SimpleBindMixin], {
+            templateString: '<div><div data-dojo-attach-point="child" data-dojo-type="Contained2"></div></div>',
+
+            _setTitleAttr: function(title) {
+                this._set("title", title);
+                this.child.set("title", title);
+            }
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Child widget should handle it's property", function() {
+            main.child.set("title", "X");
+            expect(main.child.domNode.innerHTML).toBe('X');
+        });
+
+        it("Main widget should be able to set child widget's property", function() {
+            main.set("title", "X");
+            expect(main.child.domNode.innerHTML).toBe('X');
         });
 
     });

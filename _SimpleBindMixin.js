@@ -54,10 +54,10 @@ define([
 
 			// check for attributes
 			this._simpleBindAttributes(this.domNode);
-			this._simpleBindProperties(this.domNode);
+			this._simpleBindText(this.domNode);
 		},
 
-		_simpleBindProperties: function(root) {
+		_simpleBindText: function(root) {
 
 			var TEXT = 3;
 			var node;
@@ -77,7 +77,7 @@ define([
  					if (!isMyContainerNode) {
 						// check for both attributes
 						this._simpleBindAttributes(node);
-						this._simpleBindProperties(node);
+						this._simpleBindText(node);
 
 					} else if (isMyContainerNode) {
 						// check attributes in my containernode
@@ -89,7 +89,7 @@ define([
 
 						// only continue if the node has a containerNode
 						if (widget.containerNode) {
-							this._simpleBindProperties(node);
+							this._simpleBindText(node);
 						}
 					}
 				}
@@ -102,93 +102,119 @@ define([
 			var root = node.parentNode;
 			var text = node.nodeValue;
 			var matches = text.split(reg);
+			var propertyMap = [];
+			var createdIndex = 0;
+			var baseIndex = 0;
+			var n = node;
 
 			// exit if we have no match
 			if (!matches || matches.length === 0) {
 				return;
 			}
 
+			while (n.previousSibling) {
+				n = n.previousSibling;
+				baseIndex++;
+			}
+
 			array.forEach(matches, function(match, index) {
 
 				var newNode;
+				var content;
 
 				if (index % 2 === 0) {
-					// static node
-					// don't create empty text nodes
-					if (match.length > 0) {
-						newNode = document.createTextNode(match);
+					content = match;
+					if (content.length > 0) {
+						newNode = document.createTextNode(content);
 						root.insertBefore(newNode, node);
+						createdIndex++;
 					}
 				} else {
-					// bindable node
-					this._createTextNodeUpdater(root, match, node);
+
+					propertyMap.push({
+						index: createdIndex + baseIndex,
+						length: 1,
+						property: match
+					});
+
+					// TODO: don't create a text node from strat
+					// match can include formatters and no escaping
+					// now when not escaping content, the content
+					// will be undefined first as propertyName will be "!propertyName"
+					content = this.get(match);
+					newNode = document.createTextNode(content);
+					root.insertBefore(newNode, node);
+					createdIndex++;
 				}
 			}, this);
 
 			// delete node when all others have been created
 			root.removeChild(node);
+
+			array.forEach(propertyMap, function(data) {
+				this._simpleBindCreateTextNodeUpdater(root, propertyMap, data);
+			}, this);
 		},
 
-		_createTextNodeUpdater: function(parent, propertyDirective, initalNode)  {
+		_simpleBindCreateTextNodeUpdater: function(root, propertyMap, data) {
 
-			var ref = initalNode;
-			var propertyName = propertyDirective;
+			var propertyName = data.property;
 			var htmlEscape = true;
 
-			// html in value
 			if (propertyName[0] === "!") {
 				propertyName = propertyName.substr(1);
 				htmlEscape = false;
-				ref = [initalNode];
 			}
 
-			// TODO: handle formatters for the text and escaping
 			var update = lang.hitch(this, function(p, o, n) {
 
-				var newContent;
+				var TEXT = 3;
+				var node = root.childNodes[data.index];
+				var content = this.get(propertyName);
 
 				if (htmlEscape) {
-					newContent = document.createTextNode(this.get(propertyName));
-
-					parent.insertBefore(newContent, ref);
-
-					// delete ref if it's not the initial node
-					if (ref !== initalNode) {
-						parent.removeChild(ref);
-					}
-
-					ref = newContent;
+					node.nodeValue = content;
 				} else {
-
-					// Don't escape content
-					var newRef = [];
-					newContent = domConstruct.toDom(this.get(propertyName));
-
-					// copy references
-					if (newContent.childElementCount > 0) {
-						for (var i = 0; i < newContent.childElementCount; i++) {
-							newRef.push(newContent.children[i]);
-						}
-					} else {
-						newRef = [newContent];
-					}
-
-					// insert before first item in ref
-					parent.insertBefore(newContent, ref[0]);
-
-					// remove previous content
-					if (ref[0] !== initalNode) {
-						array.forEach(ref, function(node) {
-							parent.removeChild(node);
-						});
-					}
-
-					ref = newRef;
+					this._simpleBindReplaceHTML(root, propertyMap, data, content);
 				}
 			});
 
+			// call update if we don't want html escaping, property value
+			// could include html
+			if (!htmlEscape) {
+				update();
+			}
+
 			this.own(this.watch(propertyName, update));
-			update();
+		},
+
+		_simpleBindReplaceHTML: function(root, propertyMap, data, content) {
+
+			// Don't escape content
+			var newContent = domConstruct.toDom(content);
+			var childCountBefore = root.childNodes.length;
+			var oldLength = data.length;
+			var oldFirstNode = root.childNodes[data.index];
+			var toDelete;
+
+			// insert before first item in ref
+			root.insertBefore(newContent, oldFirstNode);
+
+			var newLength = root.childNodes.length - childCountBefore;
+			var delta = newLength - oldLength;
+
+			for (var i = oldLength; i > 0; i--) {
+				toDelete = root.childNodes[data.index + newLength];
+				root.removeChild(toDelete);
+			}
+
+			array.forEach(propertyMap, function(d) {
+				if (d.index > data.index) {
+					d.index += delta;
+				}
+			}, this);
+
+			data.length = newLength;
 		},
 
 		_simpleBindAttributes: function(node) {
@@ -223,11 +249,11 @@ define([
 
 				// TODO: check for special attributes as "style" which can have sub keys/values
 				// TODO: maybe do special code when attribute="{{propertyName}}"
-				this._createAttributeUpdater(node, name, names, format);
+				this._simpleBindCreateAttributeUpdater(node, name, names, format);
 			}
 		},
 
-		_createAttributeUpdater: function(node, attributeName, names, format) {
+		_simpleBindCreateAttributeUpdater: function(node, attributeName, names, format) {
 
 			var created = {};
 			var uniqueNames = array.filter(names, function(propertyName) {
