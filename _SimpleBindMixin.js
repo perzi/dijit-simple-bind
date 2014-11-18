@@ -29,6 +29,12 @@ define([
 		//		Regular expression to match bindable properties
 		_simpleBindPropertyRegex: /\{\{([^\}]+)\}\}/g,
 
+		_simpleBindPropertyMap: null,
+
+		constructor: function() {
+			this._simpleBindPropertyMap = {};
+		},
+
 		postMixInProperties: function() {
 			this.inherited(arguments);
 
@@ -54,10 +60,15 @@ define([
 
 			// check for attributes
 			this._simpleBindAttributes(this.domNode);
-			this._simpleBindText(this.domNode);
+			this._simpleBindScanNode(this.domNode);
+
+			for (var property in this._simpleBindPropertyMap) {
+				var definitions = this._simpleBindPropertyMap[property];
+				this._simpleBindCreateTextNodeUpdater(property, definitions);
+			}
 		},
 
-		_simpleBindText: function(root) {
+		_simpleBindScanNode: function(root) {
 
 			var TEXT = 3;
 			var node;
@@ -77,7 +88,7 @@ define([
  					if (!isMyContainerNode) {
 						// check for both attributes
 						this._simpleBindAttributes(node);
-						this._simpleBindText(node);
+						this._simpleBindScanNode(node);
 
 					} else if (isMyContainerNode) {
 						// check attributes in my containernode
@@ -89,21 +100,26 @@ define([
 
 						// only continue if the node has a containerNode
 						if (widget.containerNode) {
-							this._simpleBindText(node);
+							this._simpleBindScanNode(node);
 						}
 					}
 				}
 			}
 		},
 
+		_simpleBindAddToMap: function(property, data) {
+
+			if (this._simpleBindPropertyMap[property]) {
+				this._simpleBindPropertyMap[property].push(data);
+			} else {
+				this._simpleBindPropertyMap[property] = [data];
+			}
+		},
+
 		_simpleBindTextNode: function(node) {
 
-			var reg = this._simpleBindPropertyRegex;
 			var root = node.parentNode;
-			var text = node.nodeValue;
-			var matches = text.split(reg);
-			var propertyMap = [];
-			var createdIndex = 0;
+			var matches = node.nodeValue.split(this._simpleBindPropertyRegex);
 			var baseIndex = 0;
 			var n = node;
 
@@ -119,10 +135,13 @@ define([
 			}
 
 			// TODO: put in single method
-			var toCreateIndex = 0;
-			var toCreate = [];
+			var createdIndex = 0;
+			var related = [];
 
 			array.forEach(matches, function(match, index) {
+
+				var content = "";
+				var newNode;
 
 				// don't create empty content
 				if (match.length === 0) {
@@ -131,79 +150,75 @@ define([
 
 				if (index % 2 === 0) {
 					// static content
-					toCreate.push({
-						static: match
-					});
+					content = match;
 				} else {
 					var options = match.split(/^!|:/g);
 					var allowHTML = options[0] === "";
 					var propertyName = options[allowHTML ? 1 : 0];
 					var formatting = options[allowHTML ? 2 : 1];
 
-					toCreate.push({
+					// TODO: track if this item is the only child node
+					// then we can use simpler replacement when updating
+					var definition = {
+						type: "text",
+						node: root,
 						property: propertyName,
 						allowHTML: allowHTML,
 						formatting: formatting,
-						index: baseIndex + toCreateIndex,
-						length: 1
-					});
+						index: baseIndex + createdIndex,
+						length: 1,
+						related: related // shared map for text nodes in same parent
+					};
+
+					related.push(definition);
+
+					// add definition to map
+					this._simpleBindAddToMap(propertyName, definition);
 				}
 
-				toCreateIndex++;
-			}, this);
-
-			// TODO: create single updater if node.parentNode.childNodes.length === 1
-			// and toCreate is only one item
-
-			// create static nodes and empty ones for the dynamic ones
-			array.forEach(toCreate, function(def, index) {
-				var newNode = document.createTextNode(def.static || "");
+				newNode = document.createTextNode(content);
 				root.insertBefore(newNode, node);
+
+				createdIndex++;
 			}, this);
 
 			// delete node when all others have been created
 			root.removeChild(node);
-
-			propertyMap = array.filter(toCreate, function(def) {
-				return "property" in def;
-			});
-
-			array.forEach(propertyMap, function(data) {
-				this._simpleBindCreateTextNodeUpdater(root, propertyMap, data);
-			}, this);
 		},
 
-		_simpleBindCreateTextNodeUpdater: function(root, propertyMap, data) {
-
-			var propertyName = data.property;
-			var htmlEscape = !data.allowHTML;
+		_simpleBindCreateTextNodeUpdater: function(property, definitions) {
 
 			var update = lang.hitch(this, function(p, o, n) {
 
-				var TEXT = 3;
-				var node = root.childNodes[data.index];
-				var content = this.get(propertyName);
+				array.forEach(definitions, function(definition) {
+					var root = definition.node;
+					var node = root.childNodes[definition.index];
+					var content = this.get(property);
 
-				if (htmlEscape) {
-					node.nodeValue = content;
-				} else {
-					this._simpleBindReplaceHTML(root, propertyMap, data, content);
-				}
+					// TODO: use a single updater if node.parentNode.childNodes.length === 1
+
+					if (definition.allowHTML) {
+						this._simpleBindReplaceWithHTML(root, definition, content);
+					} else {
+						node.nodeValue = content;
+					}
+				}, this);
 			});
+
+			// own
+			this.own(this.watch(property, update));
 
 			// call update to replace empty text node
 			update();
-
-			this.own(this.watch(propertyName, update));
 		},
 
-		_simpleBindReplaceHTML: function(root, propertyMap, data, content) {
+		_simpleBindReplaceWithHTML: function(root, definition, content) {
 
 			// Don't escape content
 			var newContent = domConstruct.toDom(content);
 			var childCountBefore = root.childNodes.length;
-			var oldLength = data.length;
-			var oldFirstNode = root.childNodes[data.index];
+			var oldLength = definition.length;
+			var oldFirstNode = root.childNodes[definition.index];
 			var toDelete;
 
 			// insert before first item in ref
@@ -213,17 +228,17 @@ define([
 			var delta = newLength - oldLength;
 
 			for (var i = oldLength; i > 0; i--) {
-				toDelete = root.childNodes[data.index + newLength];
+				toDelete = root.childNodes[definition.index + newLength];
 				root.removeChild(toDelete);
 			}
 
-			array.forEach(propertyMap, function(d) {
-				if (d.index > data.index) {
+			array.forEach(definition.related, function(d) {
+				if (d.index > definition.index) {
 					d.index += delta;
 				}
 			}, this);
 
-			data.length = newLength;
+			definition.length = newLength;
 		},
 
 		_simpleBindAttributes: function(node) {
