@@ -108,48 +108,65 @@ define([
 			var n = node;
 
 			// exit if we have no match
-			if (!matches || matches.length === 0) {
+			if (matches.length <= 1) {
 				return;
 			}
 
+			// find the index for this node in parent node
 			while (n.previousSibling) {
 				n = n.previousSibling;
 				baseIndex++;
 			}
 
+			// TODO: put in single method
+			var toCreateIndex = 0;
+			var toCreate = [];
+
 			array.forEach(matches, function(match, index) {
 
-				var newNode;
-				var content;
+				// don't create empty content
+				if (match.length === 0) {
+					return;
+				}
 
 				if (index % 2 === 0) {
-					content = match;
-					if (content.length > 0) {
-						newNode = document.createTextNode(content);
-						root.insertBefore(newNode, node);
-						createdIndex++;
-					}
-				} else {
-
-					propertyMap.push({
-						index: createdIndex + baseIndex,
-						length: 1,
-						property: match
+					// static content
+					toCreate.push({
+						static: match
 					});
+				} else {
+					var options = match.split(/^!|:/g);
+					var allowHTML = options[0] === "";
+					var propertyName = options[allowHTML ? 1 : 0];
+					var formatting = options[allowHTML ? 2 : 1];
 
-					// TODO: don't create a text node from strat
-					// match can include formatters and no escaping
-					// now when not escaping content, the content
-					// will be undefined first as propertyName will be "!propertyName"
-					content = this.get(match);
-					newNode = document.createTextNode(content);
-					root.insertBefore(newNode, node);
-					createdIndex++;
+					toCreate.push({
+						property: propertyName,
+						allowHTML: allowHTML,
+						formatting: formatting,
+						index: baseIndex + toCreateIndex,
+						length: 1
+					});
 				}
+
+				toCreateIndex++;
+			}, this);
+
+			// TODO: create single updater if node.parentNode.childNodes.length === 1
+			// and toCreate is only one item
+
+			// create static nodes and empty ones for the dynamic ones
+			array.forEach(toCreate, function(def, index) {
+				var newNode = document.createTextNode(def.static || "");
+				root.insertBefore(newNode, node);
 			}, this);
 
 			// delete node when all others have been created
 			root.removeChild(node);
+
+			propertyMap = array.filter(toCreate, function(def) {
+				return "property" in def;
+			});
 
 			array.forEach(propertyMap, function(data) {
 				this._simpleBindCreateTextNodeUpdater(root, propertyMap, data);
@@ -159,12 +176,7 @@ define([
 		_simpleBindCreateTextNodeUpdater: function(root, propertyMap, data) {
 
 			var propertyName = data.property;
-			var htmlEscape = true;
-
-			if (propertyName[0] === "!") {
-				propertyName = propertyName.substr(1);
-				htmlEscape = false;
-			}
+			var htmlEscape = !data.allowHTML;
 
 			var update = lang.hitch(this, function(p, o, n) {
 
@@ -179,11 +191,8 @@ define([
 				}
 			});
 
-			// call update if we don't want html escaping, property value
-			// could include html
-			if (!htmlEscape) {
-				update();
-			}
+			// call update to replace empty text node
+			update();
 
 			this.own(this.watch(propertyName, update));
 		},
