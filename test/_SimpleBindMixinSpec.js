@@ -1,11 +1,13 @@
 define([
     'dojo/_base/declare',
+    'dojo/on',
     'dijit/_WidgetBase',
     'dijit/_TemplatedMixin',
     'dijit/_WidgetsInTemplateMixin',
     'dijit-simple-bind/_SimpleBindMixin'
 ], function(
     declare,
+    on,
     _WidgetBase,
     _TemplatedMixin,
     _WidgetsInTemplateMixin,
@@ -41,6 +43,14 @@ define([
             cls.set("B", "W");
             expect(cls.domNode.className).toBe('Z W');
         });
+
+        it("Should update multiple bindable attributes in nested node when properties are set", function() {
+            cls = new CLS({ templateString: '<div><div class="{{A}} {{B}}"></div></div>' });
+            cls.set("A", "Z");
+            cls.set("B", "W");
+            expect(cls.domNode.childNodes[0].className).toBe('Z W');
+        });
+
 
         it("Should keep static values in bindable attributes when property value is set", function() {
             cls = new CLS({ templateString: '<div class="q{{A}}w"></div>' });
@@ -212,5 +222,142 @@ define([
         });
 
     });
+
+
+    describe("Input text element", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><input type="text" value="{{text}}"></div>',
+
+            text: "-"
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Input fields should trigger property change on widget when value changes", function() {
+            main.domNode.childNodes[0].value = "x";
+            expect(main.text === "x");
+        });
+
+        it("Input fields should update value when property changes", function() {
+            main.set("text", "z");
+            expect(main.domNode.childNodes[0].value === "z");
+        });
+
+    });
+
+    describe("Textarea element", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><textarea value="{{text}}"></textarea></div>',
+
+            text: "-"
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Textarea should trigger property change on widget when value changes", function() {
+            main.domNode.childNodes[0].value = "x";
+            expect(main.text === "x");
+        });
+
+        it("Textarea should update value when property changes", function() {
+            main.set("text", "z");
+            expect(main.domNode.childNodes[0].value === "z");
+        });
+    });
+
+
+    describe("Select element", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><select value="{{value}}"><option value="a">A</option><option value="b">B</option></select></div>',
+
+            value: "-"
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Select should trigger property change on widget when value changes", function() {
+            main.domNode.childNodes[0].value = "b";
+            expect(main.value === "b");
+        });
+
+        it("Select fields should update value when property changes", function() {
+            main.set("value", "a");
+            expect(main.domNode.childNodes[0].value === "a");
+        });
+
+        it("Select fields should update value when selectedIndex changes", function() {
+            main.domNode.childNodes[0].selectedIndex = 1;
+            expect(main.value === "b");
+        });
+
+    });
+
+
+    describe("Disabled attribute", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><button data-dojo-attach-point="btn" disabled="{{btnDisabled}}"></button></div>',
+
+            btnDisabled: false
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Disabled set to false", function() {
+            var clicked = false;
+            main.own(on(main.btn, "click", function() {
+                clicked = true;
+            }));
+            main.btn.click();
+            expect(clicked).toBe(true);
+        });
+
+        it("Disabled set to true", function() {
+            var clicked = false;
+            main.own(on(main.btn, "click", function() {
+                clicked = true;
+            }));
+            main.set("btnDisabled", true);
+            main.btn.click();
+            expect(clicked).toBe(false);
+        });
+    });
+
+
 
 });

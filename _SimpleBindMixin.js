@@ -2,10 +2,12 @@ define([
 	"dojo/_base/array",
 	"dojo/_base/declare",
 	"dojo/_base/lang",
-	"dojo/dom-attr",
+	"dojo/dom-prop",
 	"dojo/dom-construct",
-	"dojo/string",
+	"dojo/on",
 	"dojo/query",
+	"dojo/string",
+
 	"dijit/registry",
 	"dijit/_WidgetsInTemplateMixin",
 	"dojo/NodeList-traverse"
@@ -13,10 +15,12 @@ define([
 	array,
 	declare,
 	lang,
-	domAttr,
+	domProp,
 	domConstruct,
-	string,
+	on,
 	query,
+	string,
+
 	registry,
 	_WidgetsInTemplateMixin
 ) {
@@ -29,10 +33,12 @@ define([
 		//		Regular expression to match bindable properties
 		_simpleBindPropertyRegex: /\{\{([^\}]+)\}\}/g,
 
-		_simpleBindPropertyMap: null,
+		_simpleBindTextPropertyMap: null,
+		_simpleBindAttributePropertyMap: null,
 
 		constructor: function() {
-			this._simpleBindPropertyMap = {};
+			this._simpleBindTextPropertyMap = {};
+			this._simpleBindAttributePropertyMap = [];
 		},
 
 		postMixInProperties: function() {
@@ -62,10 +68,17 @@ define([
 			this._simpleBindAttributes(this.domNode);
 			this._simpleBindScanNode(this.domNode);
 
-			for (var property in this._simpleBindPropertyMap) {
-				var definitions = this._simpleBindPropertyMap[property];
+			// bind text property uptaters
+			for (var property in this._simpleBindTextPropertyMap) {
+				var definitions = this._simpleBindTextPropertyMap[property];
 				this._simpleBindCreateTextNodeUpdater(property, definitions);
 			}
+
+			// bind attribute property uptaters
+			array.forEach(this._simpleBindAttributePropertyMap, function(definition) {
+				this._simpleBindCreateAttributeUpdater(definition);
+			}, this);
+
 		},
 
 		_simpleBindScanNode: function(root) {
@@ -94,7 +107,7 @@ define([
 						// check attributes in my containernode
 						this._simpleBindAttributes(node);
 
-					} else if (domAttr.has(node, "widgetid")) {
+					} else if (domProp.has(node, "widgetid")) {
 						// it's a child widget
 						widget = registry.byNode(node);
 
@@ -107,12 +120,12 @@ define([
 			}
 		},
 
-		_simpleBindAddToMap: function(property, data) {
+		_simpleBindAddToTextMap: function(property, data) {
 
-			if (this._simpleBindPropertyMap[property]) {
-				this._simpleBindPropertyMap[property].push(data);
+			if (this._simpleBindTextPropertyMap[property]) {
+				this._simpleBindTextPropertyMap[property].push(data);
 			} else {
-				this._simpleBindPropertyMap[property] = [data];
+				this._simpleBindTextPropertyMap[property] = [data];
 			}
 		},
 
@@ -173,7 +186,7 @@ define([
 					related.push(definition);
 
 					// add definition to map
-					this._simpleBindAddToMap(propertyName, definition);
+					this._simpleBindAddToTextMap(propertyName, definition);
 				}
 
 				newNode = document.createTextNode(content);
@@ -242,69 +255,156 @@ define([
 		},
 
 		_simpleBindAttributes: function(node) {
-			var i;
-			var attr;
-			var name;
-			var value;
-			var format;
-			var names;
-			var values;
-			var matches;
+
+			// var attr;
+			// var name;
+			// var value;
+			// var format;
+			// var names;
+			// var values;
+			// var matches;
+			// var isExact;
 			var keepEven = function(o, index) {
 				return index % 2 === 1;
 			};
 
-			for (i = 0; i < node.attributes.length; i++) {
+			array.forEach(node.attributes, function(attr, index) {
 
-				attr = node.attributes[i];
-				value = attr.value;
-				matches = value.split(this._simpleBindPropertyRegex);
+				var value = attr.value;
+				var matches = value.split(this._simpleBindPropertyRegex);
 
 				// exit if no properties are found
-				if (matches && matches.length < 3) {
-					break;
+				if (!matches || matches.length < 3) {
+					return;
 				}
 
-				name = attr.name;
-				format = value.replace(this._simpleBindPropertyRegex, "${$1}");
+				var name = attr.name;
+				var format = value.replace(this._simpleBindPropertyRegex, "${$1}");
 
 				// the names are the
-				names = array.filter(matches, keepEven);
+				var names = this._simpleBindGetUniqueNames(array.filter(matches, keepEven));
+
+				var isExact = (matches.length === 1) || (matches.length === 3) &&
+				matches[0] === "" &&
+				matches[1] === names[0] &&
+				matches[2] === "";
 
 				// TODO: check for special attributes as "style" which can have sub keys/values
 				// TODO: maybe do special code when attribute="{{propertyName}}"
-				this._simpleBindCreateAttributeUpdater(node, name, names, format);
-			}
+				//this._simpleBindCreateAttributeUpdater(node, name, names, format);
+
+				this._simpleBindAttributePropertyMap.push({
+					node: node,
+					attributeName: name,
+					names: names,
+					format: format,
+					exact: isExact
+				});
+
+			}, this);
+
+			// for (i = 0; i < node.attributes.length; i++) {
+			//
+			// 	attr = node.attributes[i];
+			// }
 		},
 
-		_simpleBindCreateAttributeUpdater: function(node, attributeName, names, format) {
-
-			var created = {};
-			var uniqueNames = array.filter(names, function(propertyName) {
-				if (propertyName in created) {
+		_simpleBindGetUniqueNames: function(names) {
+			var found = {};
+			var uniqueNames = array.filter(names, function(name) {
+				if (name in found) {
 					return false;
 				}
-				created[propertyName] = true;
+				found[name] = true;
 				return true;
 			});
 
-			var setAttribute = lang.hitch(this, function() {
+			return uniqueNames;
+		},
+
+		_simpleBindCreateAttributeUpdater: function(definition) {
+
+			var node = definition.node;
+			var attributeName = definition.attributeName;
+			var names = definition.names;
+			var format = definition.format;
+			var exact = definition.exact;
+
+			// TODO: each name could have their own formatter for the value
+
+			var setFormattedAttribute = lang.hitch(this, function() {
 				var data = {};
 
-				array.forEach(uniqueNames, function(name) {
+				array.forEach(names, function(name) {
 					data[name] = this.get(name);
 				}, this);
 
+				// use the data object that has
 				var newValue = string.substitute(format, data);
 
-				domAttr.set(node, attributeName, newValue);
+				domProp.set(node, attributeName, newValue);
 			});
 
-			array.forEach(uniqueNames, function(propertyName, index) {
-				this.own(this.watch(propertyName, setAttribute));
-			}, this);
+			// TODO: handle checked and disabled attributes, and onChange...
+			var setSingleAttribute = lang.hitch(this, function() {
+				var newValue = this.get(names[0]);
+				domProp.set(node, attributeName, newValue);
+			});
 
-			setAttribute();
+			if (exact) {
+				// nodes that have a value
+				// is it a form node with a value
+				switch (attributeName) {
+
+					case "value":
+						this._simpleBindAttributeValue(definition);
+						break;
+
+					default:
+						this.own(this.watch(names[0], setSingleAttribute));
+						setSingleAttribute();
+						break;
+				}
+			} else {
+				array.forEach(names, function(propertyName, index) {
+					this.own(this.watch(propertyName, setFormattedAttribute));
+				}, this);
+				setFormattedAttribute();
+			}
+		},
+
+		_simpleBindAttributeValue: function(definition) {
+			var node = definition.node;
+			var attributeName = definition.attributeName;
+			var name = definition.names[0];
+			var inProgress = false;
+
+			var updateFromNode = lang.hitch(this, function() {
+
+				if (inProgress) {
+					return;
+				}
+
+				inProgress = true;
+				this.set(name, node.value);
+				inProgress = false;
+			});
+
+			var updateFromProperty = lang.hitch(this, function(p, o, value) {
+
+				if (inProgress) {
+					return;
+				}
+
+				inProgress = true;
+				node.value = this.get(name);
+				inProgress = false;
+			});
+
+			this.own(
+				on(node, "change", updateFromNode),
+				this.watch(name, updateFromProperty)
+			);
 		}
 	});
 });
