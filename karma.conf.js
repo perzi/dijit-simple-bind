@@ -18,7 +18,7 @@ module.exports = function(config) {
 
     // test results reporter to use
     // possible values: dots || progress
-    reporters: ['dots', 'osx'],
+    reporters: ['mocha', 'osx'],
 
 
     // web server port
@@ -59,6 +59,7 @@ module.exports = function(config) {
     plugins: [
       'karma-dojo',
       'karma-jasmine',
+      'karma-mocha-reporter',
       'karma-osx-reporter',
       'karma-chrome-launcher',
       'karma-firefox-launcher'

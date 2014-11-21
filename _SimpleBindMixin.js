@@ -29,6 +29,12 @@ define([
 		//		Regular expression to match bindable properties
 		_simpleBindPropertyRegex: /\{\{([^\}]+)\}\}/g,
 
+		_simpleBindPropertyMap: null,
+
+		constructor: function() {
+			this._simpleBindPropertyMap = {};
+		},
+
 		postMixInProperties: function() {
 			this.inherited(arguments);
 
@@ -54,10 +60,15 @@ define([
 
 			// check for attributes
 			this._simpleBindAttributes(this.domNode);
-			this._simpleBindProperties(this.domNode);
+			this._simpleBindScanNode(this.domNode);
+
+			for (var property in this._simpleBindPropertyMap) {
+				var definitions = this._simpleBindPropertyMap[property];
+				this._simpleBindCreateTextNodeUpdater(property, definitions);
+			}
 		},
 
-		_simpleBindProperties: function(root) {
+		_simpleBindScanNode: function(root) {
 
 			var TEXT = 3;
 			var node;
@@ -77,7 +88,7 @@ define([
  					if (!isMyContainerNode) {
 						// check for both attributes
 						this._simpleBindAttributes(node);
-						this._simpleBindProperties(node);
+						this._simpleBindScanNode(node);
 
 					} else if (isMyContainerNode) {
 						// check attributes in my containernode
@@ -89,106 +100,145 @@ define([
 
 						// only continue if the node has a containerNode
 						if (widget.containerNode) {
-							this._simpleBindProperties(node);
+							this._simpleBindScanNode(node);
 						}
 					}
 				}
 			}
 		},
 
+		_simpleBindAddToMap: function(property, data) {
+
+			if (this._simpleBindPropertyMap[property]) {
+				this._simpleBindPropertyMap[property].push(data);
+			} else {
+				this._simpleBindPropertyMap[property] = [data];
+			}
+		},
+
 		_simpleBindTextNode: function(node) {
 
-			var reg = this._simpleBindPropertyRegex;
 			var root = node.parentNode;
-			var text = node.nodeValue;
-			var matches = text.split(reg);
+			var matches = node.nodeValue.split(this._simpleBindPropertyRegex);
+			var baseIndex = 0;
+			var n = node;
 
 			// exit if we have no match
-			if (!matches || matches.length === 0) {
+			if (matches.length <= 1) {
 				return;
 			}
 
+			// find the index for this node in parent node
+			while (n.previousSibling) {
+				n = n.previousSibling;
+				baseIndex++;
+			}
+
+			// TODO: put in single method
+			var createdIndex = 0;
+			var related = [];
+
 			array.forEach(matches, function(match, index) {
 
+				var content = "";
 				var newNode;
 
-				if (index % 2 === 0) {
-					// static node
-					// don't create empty text nodes
-					if (match.length > 0) {
-						newNode = document.createTextNode(match);
-						root.insertBefore(newNode, node);
-					}
-				} else {
-					// bindable node
-					this._createTextNodeUpdater(root, match, node);
+				// don't create empty content
+				if (match.length === 0) {
+					return;
 				}
+
+				if (index % 2 === 0) {
+					// static content
+					content = match;
+				} else {
+					var options = match.split(/^!|:/g);
+					var allowHTML = options[0] === "";
+					var propertyName = options[allowHTML ? 1 : 0];
+					var formatting = options[allowHTML ? 2 : 1];
+
+					// TODO: track if this item is the only child node
+					// then we can use simpler replacement when updating
+					var definition = {
+						type: "text",
+						node: root,
+						property: propertyName,
+						allowHTML: allowHTML,
+						formatting: formatting,
+						index: baseIndex + createdIndex,
+						length: 1,
+						related: related // shared map for text nodes in same parent
+					};
+
+					related.push(definition);
+
+					// add definition to map
+					this._simpleBindAddToMap(propertyName, definition);
+				}
+
+				newNode = document.createTextNode(content);
+				root.insertBefore(newNode, node);
+
+				createdIndex++;
 			}, this);
 
 			// delete node when all others have been created
 			root.removeChild(node);
 		},
 
-		_createTextNodeUpdater: function(parent, propertyDirective, initalNode)  {
+		_simpleBindCreateTextNodeUpdater: function(property, definitions) {
 
-			var ref = initalNode;
-			var propertyName = propertyDirective;
-			var htmlEscape = true;
-
-			// html in value
-			if (propertyName[0] === "!") {
-				propertyName = propertyName.substr(1);
-				htmlEscape = false;
-				ref = [initalNode];
-			}
-
-			// TODO: handle formatters for the text and escaping
 			var update = lang.hitch(this, function(p, o, n) {
 
-				var newContent;
+				array.forEach(definitions, function(definition) {
+					var root = definition.node;
+					var node = root.childNodes[definition.index];
+					var content = this.get(property);
 
-				if (htmlEscape) {
-					newContent = document.createTextNode(this.get(propertyName));
+					// TODO: use a single updater if node.parentNode.childNodes.length === 1
 
-					parent.insertBefore(newContent, ref);
-
-					// delete ref if it's not the initial node
-					if (ref !== initalNode) {
-						parent.removeChild(ref);
-					}
-
-					ref = newContent;
-				} else {
-
-					// Don't escape content
-					var newRef = [];
-					newContent = domConstruct.toDom(this.get(propertyName));
-
-					// copy references
-					if (newContent.childElementCount > 0) {
-						for (var i = 0; i < newContent.childElementCount; i++) {
-							newRef.push(newContent.children[i]);
-						}
+					if (definition.allowHTML) {
+						this._simpleBindReplaceWithHTML(root, definition, content);
 					} else {
-						newRef = [newContent];
+						node.nodeValue = content;
 					}
-
-					// insert before first item in ref
-					parent.insertBefore(newContent, ref[0]);
-
-					// remove previous content
-					if (ref[0] !== initalNode) {
-						array.forEach(ref, function(node) {
-							parent.removeChild(node);
-						});
-					}
-
-					ref = newRef;
-				}
+				}, this);
 			});
 
-			this.own(this.watch(propertyName, update));
+			// own
+			this.own(this.watch(property, update));
+
+			// call update to replace empty text node
 			update();
+		},
+
+		_simpleBindReplaceWithHTML: function(root, definition, content) {
+
+			// Don't escape content
+			var newContent = domConstruct.toDom(content);
+			var childCountBefore = root.childNodes.length;
+			var oldLength = definition.length;
+			var oldFirstNode = root.childNodes[definition.index];
+			var toDelete;
+
+			// insert before first item in ref
+			root.insertBefore(newContent, oldFirstNode);
+
+			var newLength = root.childNodes.length - childCountBefore;
+			var delta = newLength - oldLength;
+
+			for (var i = oldLength; i > 0; i--) {
+				toDelete = root.childNodes[definition.index + newLength];
+				root.removeChild(toDelete);
+			}
+
+			array.forEach(definition.related, function(d) {
+				if (d.index > definition.index) {
+					d.index += delta;
+				}
+			}, this);
+
+			definition.length = newLength;
 		},
 
 		_simpleBindAttributes: function(node) {
@@ -223,11 +273,11 @@ define([
 
 				// TODO: check for special attributes as "style" which can have sub keys/values
 				// TODO: maybe do special code when attribute="{{propertyName}}"
-				this._createAttributeUpdater(node, name, names, format);
+				this._simpleBindCreateAttributeUpdater(node, name, names, format);
 			}
 		},
 
-		_createAttributeUpdater: function(node, attributeName, names, format) {
+		_simpleBindCreateAttributeUpdater: function(node, attributeName, names, format) {
 
 			var created = {};
 			var uniqueNames = array.filter(names, function(propertyName) {
