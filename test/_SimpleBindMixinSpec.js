@@ -1,11 +1,13 @@
 define([
     'dojo/_base/declare',
+    'dojo/on',
     'dijit/_WidgetBase',
     'dijit/_TemplatedMixin',
     'dijit/_WidgetsInTemplateMixin',
     'dijit-simple-bind/_SimpleBindMixin'
 ], function(
     declare,
+    on,
     _WidgetBase,
     _TemplatedMixin,
     _WidgetsInTemplateMixin,
@@ -252,6 +254,36 @@ define([
 
     });
 
+    describe("Textarea element", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><textarea value="{{text}}"></textarea></div>',
+
+            text: "-"
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Textarea should trigger property change on widget when value changes", function() {
+            main.domNode.childNodes[0].value = "x";
+            expect(main.text === "x");
+        });
+
+        it("Textarea should update value when property changes", function() {
+            main.set("text", "z");
+            expect(main.domNode.childNodes[0].value === "z");
+        });
+    });
+
+
     describe("Select element", function() {
 
         // data-dojo-props="title: {{A}}"
@@ -264,7 +296,6 @@ define([
 
         beforeEach(function() {
             main = new Main();
-            main.placeAt(document.body);
         });
 
         afterEach(function() {
@@ -287,5 +318,46 @@ define([
         });
 
     });
+
+
+    describe("Disabled attribute", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><button data-dojo-attach-point="btn" disabled="{{btnDisabled}}"></button></div>',
+
+            btnDisabled: false
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Disabled set to false", function() {
+            var clicked = false;
+            main.own(on(main.btn, "click", function() {
+                clicked = true;
+            }));
+            main.btn.click();
+            expect(clicked).toBe(true);
+        });
+
+        it("Disabled set to true", function() {
+            var clicked = false;
+            main.own(on(main.btn, "click", function() {
+                clicked = true;
+            }));
+            main.set("btnDisabled", true);
+            main.btn.click();
+            expect(clicked).toBe(false);
+        });
+    });
+
+
 
 });

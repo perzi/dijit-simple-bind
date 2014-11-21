@@ -2,7 +2,7 @@ define([
 	"dojo/_base/array",
 	"dojo/_base/declare",
 	"dojo/_base/lang",
-	"dojo/dom-attr",
+	"dojo/dom-prop",
 	"dojo/dom-construct",
 	"dojo/on",
 	"dojo/query",
@@ -15,7 +15,7 @@ define([
 	array,
 	declare,
 	lang,
-	domAttr,
+	domProp,
 	domConstruct,
 	on,
 	query,
@@ -107,7 +107,7 @@ define([
 						// check attributes in my containernode
 						this._simpleBindAttributes(node);
 
-					} else if (domAttr.has(node, "widgetid")) {
+					} else if (domProp.has(node, "widgetid")) {
 						// it's a child widget
 						widget = registry.byNode(node);
 
@@ -329,7 +329,6 @@ define([
 			var names = definition.names;
 			var format = definition.format;
 			var exact = definition.exact;
-			var firstTime = true;
 
 			// TODO: each name could have their own formatter for the value
 
@@ -343,27 +342,28 @@ define([
 				// use the data object that has
 				var newValue = string.substitute(format, data);
 
-				domAttr.set(node, attributeName, newValue);
+				domProp.set(node, attributeName, newValue);
 			});
 
 			// TODO: handle checked and disabled attributes, and onChange...
 			var setSingleAttribute = lang.hitch(this, function() {
 				var newValue = this.get(names[0]);
-				domAttr.set(node, attributeName, newValue);
-				// if (firstTime) {
-				// 	node.getAttribute(attributeName).nodeValue = newValue;
-				// 	firstTime = false;
-				// }
+				domProp.set(node, attributeName, newValue);
 			});
 
 			if (exact) {
 				// nodes that have a value
 				// is it a form node with a value
-				if (attributeName === "value") {
-					this._simpleBindAttributeValue(definition);
-				} else {
-					this.own(this.watch(names[0], setSingleAttribute));
-					setSingleAttribute();
+				switch (attributeName) {
+
+					case "value":
+						this._simpleBindAttributeValue(definition);
+						break;
+
+					default:
+						this.own(this.watch(names[0], setSingleAttribute));
+						setSingleAttribute();
+						break;
 				}
 			} else {
 				array.forEach(names, function(propertyName, index) {
