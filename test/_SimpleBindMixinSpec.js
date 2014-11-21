@@ -42,6 +42,14 @@ define([
             expect(cls.domNode.className).toBe('Z W');
         });
 
+        it("Should update multiple bindable attributes in nested node when properties are set", function() {
+            cls = new CLS({ templateString: '<div><div class="{{A}} {{B}}"></div></div>' });
+            cls.set("A", "Z");
+            cls.set("B", "W");
+            expect(cls.domNode.childNodes[0].className).toBe('Z W');
+        });
+
+
         it("Should keep static values in bindable attributes when property value is set", function() {
             cls = new CLS({ templateString: '<div class="q{{A}}w"></div>' });
             cls.set("A", "Z");
@@ -209,6 +217,73 @@ define([
         it("Main widget should be able to set child widget's property", function() {
             main.set("title", "X");
             expect(main.child.domNode.innerHTML).toBe('X');
+        });
+
+    });
+
+
+    describe("Input text element", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><input type="text" value="{{text}}"></div>',
+
+            text: "-"
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Input fields should trigger property change on widget when value changes", function() {
+            main.domNode.childNodes[0].value = "x";
+            expect(main.text === "x");
+        });
+
+        it("Input fields should update value when property changes", function() {
+            main.set("text", "z");
+            expect(main.domNode.childNodes[0].value === "z");
+        });
+
+    });
+
+    describe("Select element", function() {
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _SimpleBindMixin], {
+            templateString: '<div><select value="{{value}}"><option value="a">A</option><option value="b">B</option></select></div>',
+
+            value: "-"
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+            main.placeAt(document.body);
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("Select should trigger property change on widget when value changes", function() {
+            main.domNode.childNodes[0].value = "b";
+            expect(main.value === "b");
+        });
+
+        it("Select fields should update value when property changes", function() {
+            main.set("value", "a");
+            expect(main.domNode.childNodes[0].value === "a");
+        });
+
+        it("Select fields should update value when selectedIndex changes", function() {
+            main.domNode.childNodes[0].selectedIndex = 1;
+            expect(main.value === "b");
         });
 
     });
