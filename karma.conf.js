@@ -10,9 +10,8 @@ module.exports = function(config) {
       'karma-main.js',
 
       // all the sources, tests
-    //   {pattern: 'test/**/*Spec.js', included: true},
-      {pattern: '*.js', included: false},
-      {pattern: 'test/*.js', included: false}
+        {pattern: 'src/**/*.js', included: false},
+        {pattern: 'test/**/*.js', included: false}
     ],
 
 
