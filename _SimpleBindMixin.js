@@ -10,6 +10,9 @@ define([
 
 	"dijit/registry",
 	"dijit/_WidgetsInTemplateMixin",
+
+	"./bind",
+
 	"dojo/NodeList-traverse"
 ], function(
 	array,
@@ -22,7 +25,9 @@ define([
 	string,
 
 	registry,
-	_WidgetsInTemplateMixin
+	_WidgetsInTemplateMixin,
+
+	bind
 ) {
 	// variable to use for namespacing properties before buildRendering
 	var idCounter = 0;
@@ -79,6 +84,13 @@ define([
 				this._simpleBindCreateAttributeUpdater(definition);
 			}, this);
 
+		},
+
+		bind: function(/*Stateful*/target, /*Object|Array*/properties, /*Boolean?*/oneWay) {
+			// summary:
+			//		convenience method to bind this widget to other observables
+
+			return bind(this, target, properties, oneWay);
 		},
 
 		_simpleBindScanNode: function(root) {
