@@ -9,7 +9,7 @@ Object.keys(window.__karma__.files).forEach(function(file) {
 
 var dojoConfig = {
     packages: [
-        { name:"dijit-simple-bind" ,location:"/base"},
+        { name:"dijit-simple-bind" ,location:"/base/src"},
         { name: "dojo", location: "http://ajax.googleapis.com/ajax/libs/dojo/1.9.1/dojo" },
         { name: "dijit", location: "http://ajax.googleapis.com/ajax/libs/dojo/1.9.1/dijit" }
     ],
