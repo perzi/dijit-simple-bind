@@ -1,0 +1,38 @@
+{
+  "name": "dijit-simple-bind",
+  "version": "0.0.1",
+  "description": "Simple bind mixin for dijit widgets",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+
+  },
+  "devDependencies": {
+      "karma": "^0.12.24",
+      "karma-jasmine": "^0.2.3",
+      "karma-chrome-launcher": "^0.1.5",
+      "karma-dojo": "^0.0.1",
+      "karma-firefox-launcher": "^0.1.3",
+      "karma-osx-reporter": "^0.1.0",
+      "karma-mocha-reporter": "^0.3.1"
+  },
+  "scripts": {
+    "test": "karma start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/perzi/dijit-simple-bind.git"
+  },
+  "keywords": [
+    "dijit",
+    "dojo",
+    "bind"
+  ],
+  "author": "Per Zimmerman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/perzi/dijit-simple-bind/issues"
+  },
+  "homepage": "https://github.com/perzi/dijit-simple-bind"
+}
