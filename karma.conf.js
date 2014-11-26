@@ -49,7 +49,7 @@ module.exports = function(config) {
     // - Opera
     // - Safari
     // - PhantomJS
-    browsers: process.env.TRAVIS ? ['Firefox'] : ['Chrome', 'Firefox'],
+    browsers: process.env.TRAVIS ? ['Firefox'] : ['Chrome'],
 
 
     // Continuous Integration mode

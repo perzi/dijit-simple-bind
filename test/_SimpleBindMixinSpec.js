@@ -359,5 +359,41 @@ define([
     });
 
 
+    describe("Widgets bind", function() {
+
+        var Contained = declare("Contained3", [_WidgetBase, _TemplatedMixin], {
+            templateString: '<div>{{title}}</div>',
+            title: "A"
+        });
+
+        // data-dojo-props="title: {{A}}"
+        var Main = declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, _SimpleBindMixin], {
+            templateString: '<div><div data-dojo-attach-point="child" data-dojo-type="Contained3"></div></div>'
+        });
+        var main;
+
+        beforeEach(function() {
+            main = new Main();
+        });
+
+        afterEach(function() {
+            main.destroy();
+        });
+
+        it("should", function() {
+            main.own(main.bind(main.child, ["title"]));
+            main.set("title", "X");
+            expect(main.child.title).toBe('X');
+        });
+
+        it("should", function() {
+            main.own(main.bind(main.child, {
+                "titleX": "titleY"
+            }));
+            main.set("titleX", "1");
+            expect(main.child.titleY).toBe('1');
+        });
+
+    });
 
 });
