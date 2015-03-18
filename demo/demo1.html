@@ -1,0 +1,64 @@
+<!DOCTYPE html!>
+<html>
+<head>
+	<title>Demo 1</title>
+	<link rel="stylesheet" href="styles.css" type="text/css" />
+</head>
+
+<body>
+
+	<div class="main">
+		<div id="simpleTemplate" data-dojo-type="demo/SimpleTemplate"></div>
+	</div>
+	<div class="buttons">
+		<label><input type="checkbox" id="input-text-color">Class changing text color</label>
+		<label><input type="checkbox" id="input-text-bg">Class changing text background</label>
+	</div>
+
+
+	<script src="config.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.10.3/dojo/dojo.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.10.3/dijit/dijit.js"></script>
+	<script>
+
+		require([
+			"dojo/parser",
+			"dojo/on",
+
+			"dijit/registry",
+
+			"demo/SimpleTemplate",
+			"dojo/domReady!"
+		], function(
+			parser,
+			on,
+
+			registry
+		) {
+
+			parser.parse();
+
+			var w = registry.byId("simpleTemplate");
+
+			w.set({
+				classA: "text--default",
+				classB: "bg--default",
+				text: "Widget text",
+				oldStyle: "Old Style"
+			})
+
+			on(document.querySelector("#input-text-color"), "change", function() {
+				w.set("classA", this.checked ? "text--other" : "text--default");
+			});
+			on(document.querySelector("#input-text-bg"), "change", function() {
+				w.set("classB", this.checked ? "bg--other" : "bg--default");
+			});
+
+			setInterval(function() {
+				var counter = w.get("counter");
+				w.set("counter", counter + 1);
+			}, 1000);
+		});
+	</script>
+</body>
+</html>
