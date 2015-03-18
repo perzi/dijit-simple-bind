@@ -28,7 +28,7 @@ console.log(object1.b); // => 4
 
 // Use _SimpleBindMixin for widgets
 var MyWidget = declare([_WidgetBase, _TemplatedWidget, _SimpleBindMixin], {
-    templateString: "<div><span class="staticClass {{className}}">{{text}}</span></div>",
+    templateString: '<div><span class="staticClass {{className}}">{{text}}</span></div>',
     className: "defaultClass",
     text: ""
 });
