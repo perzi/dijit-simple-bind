@@ -8,7 +8,7 @@
 <body>
 
 	<div class="main">
-		<div id="simpleTemplate" data-dojo-type="demo/SimpleTemplate"></div>
+		<div id="widget" data-dojo-type="demo/SimpleTemplate"></div>
 	</div>
 	<div class="buttons">
 		<label><input type="checkbox" id="input-text-color">Class changing text color</label>
@@ -38,7 +38,7 @@
 
 			parser.parse();
 
-			var w = registry.byId("simpleTemplate");
+			var w = registry.byId("widget");
 
 			w.set({
 				classA: "text--default",

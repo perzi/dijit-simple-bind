@@ -1,0 +1,67 @@
+<!DOCTYPE html!>
+<html>
+<head>
+	<title>Demo 2</title>
+	<link rel="stylesheet" href="styles.css" type="text/css" />
+</head>
+
+<body>
+
+	<div class="main">
+		<div id="widget" data-dojo-type="demo/ContainerWidget"></div>
+	</div>
+	<div class="buttons">
+		<button class="button" id="title1">Set title to "Title 1"</button>
+		<button class="button" id="title2">Set title to "Title 2"</button>
+		<button class="button" id="childTitle1">Set child title to "Child Title 1"</button>
+		<button class="button" id="childTitle2">Set child title to "Child Title 2"</button>
+	</div>
+
+
+	<script src="config.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.10.3/dojo/dojo.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.10.3/dijit/dijit.js"></script>
+	<script>
+
+		require([
+			"dojo/parser",
+			"dojo/on",
+
+			"dijit/registry",
+
+			"demo/ContainerWidget",
+			"dojo/domReady!"
+		], function(
+			parser,
+			on,
+
+			registry
+		) {
+
+			parser.parse();
+
+			var w = registry.byId("widget");
+
+			w.set({
+				heading: "Container title",
+				childHeading: "Child title"
+			})
+
+			on(document.querySelector("#title1"), "click", function() {
+				w.set("heading", "Title 1");
+			});
+			on(document.querySelector("#title2"), "click", function() {
+				w.set("heading", "Title 2");
+			});
+
+			on(document.querySelector("#childTitle1"), "click", function() {
+				w.set("childHeading", "Child Title 1");
+			});
+			on(document.querySelector("#childTitle2"), "click", function() {
+				w.set("childHeading", "Child Title 2");
+			});
+
+		});
+	</script>
+</body>
+</html>
