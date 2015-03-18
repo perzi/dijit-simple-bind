@@ -1,0 +1,43 @@
+body {
+    margin: 3em auto;
+    width: 800px;
+    font-family: sans-serif;
+}
+
+
+.main {
+    width: 350px;
+    float: left;
+}
+
+.buttons {
+    width: 350px;
+    float: right;
+}
+
+.simple-template {
+    border: 1px solid #eee;
+    padding: 1em;
+    line-height: 2em;
+}
+
+.text--default {
+    color: green;
+}
+
+.text--other {
+    color: red;
+}
+
+.bg--default {
+    background: yellow;
+}
+
+.bg--other {
+    background: cyan;
+}
+
+label {
+    display: block;
+    margin: 0 0 1em;
+}

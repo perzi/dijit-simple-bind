@@ -220,6 +220,7 @@ define([
 					var node = root.childNodes[definition.index];
 					var content = this.get(property);
 
+					// TODO: use formatter
 					// TODO: use a single updater if node.parentNode.childNodes.length === 1
 
 					if (definition.allowHTML) {
@@ -415,6 +416,7 @@ define([
 
 			this.own(
 				on(node, "change", updateFromNode),
+				on(node, "keyup", updateFromNode),
 				this.watch(name, updateFromProperty)
 			);
 		}
